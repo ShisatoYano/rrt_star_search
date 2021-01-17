@@ -2,9 +2,9 @@
 
 using namespace std;
 
-#define EXPAND_DISTANCE 1.0
-#define GOAL_SAMPLE_RATE 5
-#define MAX_INTER 500
+#define EXPAND_DISTANCE 0.5
+#define GOAL_SAMPLE_RATE 20
+#define MAX_INTER 5000
 #define MIN_RAND -2
 #define MAX_RAND 15
 
@@ -12,12 +12,14 @@ using namespace std;
 struct Node
 {
     float x, y;
+    float cost;
     int parent;
 
     Node(float x, float y, int idx)
     {
         this->x = x;
         this->y = y;
+        this->cost = 0.0;
         this->parent = idx;
     }
 };
@@ -60,6 +62,26 @@ public:
         return min_idx;
     }
 
+    Node* steer(PosPair rnd, int nrst_idx)
+    {
+        Node* nrst_node;
+        float angle;
+
+        nrst_node = node_list[nrst_idx];
+
+        angle = atan2(rnd.second - nrst_node->y, rnd.first - nrst_node->x);
+
+        Node* new_node = new Node(nrst_node->x, nrst_node->y, nrst_idx);
+        new_node->x += EXPAND_DISTANCE * cos(angle);
+        new_node->y += EXPAND_DISTANCE * sin(angle);
+
+        new_node->cost += EXPAND_DISTANCE;
+
+        new_node->parent = nrst_idx;
+
+        return new_node;
+    }
+
     static bool check_collision(Node* node, int obstacles[][3], int obst_num)
     {
         float dx, dy, d;
@@ -73,6 +95,22 @@ public:
         }
 
         return true; // safe
+    }
+
+    vector<int> find_near_nodes(float new_x, float new_y)
+    {
+        vector<int> near_idxes;
+        vector<float> dist_list;
+
+        float nodes_num = node_list.size();
+
+        // 2 dimension
+        float radius = 50.0 * sqrt(log(nodes_num) / nodes_num);
+
+        // find
+        for (int i = 0; i < node_list.size() - 1; ++i) {
+
+        }
     }
 
     void planning(int obstacles[][3])
@@ -90,10 +128,9 @@ public:
 
         // nearest node's data
         int nrst_idx;
-        Node* nrst_node;
 
-        // direction angle to new node
-        float angle;
+        // near node's index list
+        vector<int> near_idxes;
 
         // check goal
         float dx, dy, d;
@@ -115,21 +152,19 @@ public:
             // find nearest node
             nrst_idx = nearest_node_list(node_list, rnd);
 
-            // expand tree
-            nrst_node = node_list[nrst_idx];
-            // direction
-            angle = atan2(rnd.second - nrst_node->y, rnd.first - nrst_node->x);
-
-            // caluculate new node
-//            new_node = nrst_node;
-            Node* new_node = new Node(nrst_node->x, nrst_node->y, nrst_idx);
-            new_node->x += EXPAND_DISTANCE * cos(angle);
-            new_node->y += EXPAND_DISTANCE * sin(angle);
-//            new_node->parent = nrst_idx;
+            // steer
+            Node* new_node = steer(rnd, nrst_idx);
 
             if (!check_collision(new_node, obstacles, obst_num)) {continue;}
 
+            // find near nodes
+            near_idxes = find_near_nodes(new_node->x, new_node->y);
+
+            // choose parent
+
             node_list.push_back(new_node);
+
+            // rewire
 
             // check goal
             dx = new_node->x - goal->x;
