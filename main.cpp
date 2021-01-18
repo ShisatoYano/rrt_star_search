@@ -101,6 +101,7 @@ public:
     {
         vector<int> near_idxes;
         vector<float> dist_list;
+        float dist;
 
         float nodes_num = node_list.size();
 
@@ -108,7 +109,45 @@ public:
         float radius = 50.0 * sqrt(log(nodes_num) / nodes_num);
 
         // find
-        for (int i = 0; i < node_list.size() - 1; ++i) {
+        for (int i = 0; i < node_list.size(); ++i) {
+            dist = (node_list[i]->x - new_x) * (node_list[i]->x - new_x) +
+                    (node_list[i]->y - new_y) * (node_list[i]->y - new_y);
+            dist_list.push_back(dist);
+        }
+
+        for (int j = 0; j < dist_list.size(); ++j) {
+            if (dist_list[j] <= (radius * radius))
+            {
+                near_idxes.push_back(j);
+            }
+        }
+
+        return near_idxes;
+    }
+
+    bool check_collision_extend(Node* near_node, float theta, float d)
+    {
+        Node* tmp_node = new Node(near_node->x, near_node->y, near_node->parent);
+
+        for (int i = 0; i < int(d / EXPAND_DISTANCE); ++i) {
+
+        }
+
+        return true;
+    }
+
+    Node* choose_parent(Node* new_node, vector<int> near_idxes)
+    {
+        if (near_idxes.empty()) {return new_node;}
+
+        vector<float> dlist;
+        float dx, dy, d, theta;
+
+        for (auto ni : near_idxes) {
+            dx = new_node->x - node_list[ni]->x;
+            dy = new_node->y - node_list[ni]->y;
+            d = sqrt(dx * dx - dy * dy);
+            theta = atan2(dy, dx);
 
         }
     }
@@ -161,6 +200,7 @@ public:
             near_idxes = find_near_nodes(new_node->x, new_node->y);
 
             // choose parent
+            new_node = choose_parent(new_node, near_idxes);
 
             node_list.push_back(new_node);
 
