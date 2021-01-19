@@ -82,7 +82,7 @@ public:
         return new_node;
     }
 
-    static bool check_collision(Node* node, int obstacles[][3], int obst_num)
+    bool check_collision(Node* node, int obstacles[][3])
     {
         float dx, dy, d;
 
@@ -125,30 +125,86 @@ public:
         return near_idxes;
     }
 
-    bool check_collision_extend(Node* near_node, float theta, float d)
+    bool check_collision_extend(Node* near_node, float theta, float d, int obstacles[][3])
     {
         Node* tmp_node = new Node(near_node->x, near_node->y, near_node->parent);
 
         for (int i = 0; i < int(d / EXPAND_DISTANCE); ++i) {
-
+            tmp_node->x += EXPAND_DISTANCE * cos(theta);
+            tmp_node->y += EXPAND_DISTANCE * sin(theta);
+            if (!check_collision(tmp_node, obstacles))
+            {
+                return false;
+            }
         }
 
         return true;
     }
 
-    Node* choose_parent(Node* new_node, vector<int> near_idxes)
+    Node* choose_parent(Node* new_node, vector<int> near_idxes, int obstacles[][3])
     {
         if (near_idxes.empty()) {return new_node;}
 
         vector<float> dlist;
         float dx, dy, d, theta;
+        float min_cost;
+        int min_idx;
 
         for (auto ni : near_idxes) {
             dx = new_node->x - node_list[ni]->x;
             dy = new_node->y - node_list[ni]->y;
             d = sqrt(dx * dx - dy * dy);
             theta = atan2(dy, dx);
+            if (check_collision_extend(node_list[ni], theta, d, obstacles))
+            {
+                dlist.push_back(node_list[ni]->cost + d);
+            }
+            else
+            {
+                dlist.push_back(float(INFINITY));
+            }
+        }
 
+        min_cost = *min_element(dlist.begin(), dlist.end());
+        min_idx = min_element(dlist.begin(), dlist.end()) - dlist.begin();
+
+        if (min_cost == float(INFINITY))
+        {
+            cout << "Min cost is inf" << endl;
+            return new_node;
+        }
+
+        new_node->cost = min_cost;
+        new_node->parent = min_idx;
+
+        return new_node;
+    }
+
+    void rewire(Node* new_node, vector<int> near_idxes, int obstacles[][3])
+    {
+        Node* near_node;
+        float dx, dy, d, s_cost, theta;
+
+        int n_node = near_idxes.size();
+
+        for (auto ni : near_idxes) {
+            near_node = node_list[ni];
+
+            dx = new_node->x - near_node->x;
+            dy = new_node->y - near_node->y;
+            d = sqrt(dx * dx + dy * dy);
+
+            s_cost = new_node->cost + d;
+
+            if (near_node->cost > s_cost)
+            {
+                theta = atan2(dy, dx);
+                if (check_collision_extend(near_node, theta, d, obstacles))
+                {
+                    near_node->parent = n_node - 1;
+                    near_node->cost = s_cost;
+                }
+            }
         }
     }
 
@@ -194,52 +250,52 @@ public:
             // steer
             Node* new_node = steer(rnd, nrst_idx);
 
-            if (!check_collision(new_node, obstacles, obst_num)) {continue;}
+            if (!check_collision(new_node, obstacles)) {continue;}
 
             // find near nodes
             near_idxes = find_near_nodes(new_node->x, new_node->y);
 
             // choose parent
-            new_node = choose_parent(new_node, near_idxes);
-
+            new_node = choose_parent(new_node, near_idxes, obstacles);
             node_list.push_back(new_node);
 
             // rewire
+            rewire(new_node, near_idxes, obstacles);
 
             // check goal
-            dx = new_node->x - goal->x;
-            dy = new_node->y - goal->y;
-            d = sqrt(dx * dx + dy * dy);
-            if (d <= EXPAND_DISTANCE)
-            {
-                cout << "Goal!!" << endl;
-                break;
-            }
+//            dx = new_node->x - goal->x;
+//            dy = new_node->y - goal->y;
+//            d = sqrt(dx * dx + dy * dy);
+//            if (d <= EXPAND_DISTANCE)
+//            {
+//                cout << "Goal!!" << endl;
+//                break;
+//            }
         }
 
         // path
-        path.push_back(make_pair(goal->x, goal->y));
-        last_idx = node_list.size() - 1;
-        while (node_list[last_idx]->parent != -1)
-        {
-            last_node = node_list[last_idx];
-            path.push_back(make_pair(last_node->x, last_node->y));
-            last_idx = last_node->parent;
-        }
-        path.push_back(make_pair(start->x, start->y));
-
-        // print
-        reverse(path.begin(), path.end());
-        for (int i = 0; i < path.size() ; ++i) {
-            if (i == path.size() - 1)
-            {
-                cout << "(" << path[i].first << " " << path[i].second << ")" << endl;
-            }
-            else
-            {
-                cout << "(" << path[i].first << " " << path[i].second << ")" << "->";
-            }
-        }
+//        path.push_back(make_pair(goal->x, goal->y));
+//        last_idx = node_list.size() - 1;
+//        while (node_list[last_idx]->parent != -1)
+//        {
+//            last_node = node_list[last_idx];
+//            path.push_back(make_pair(last_node->x, last_node->y));
+//            last_idx = last_node->parent;
+//        }
+//        path.push_back(make_pair(start->x, start->y));
+//
+//        // print
+//        reverse(path.begin(), path.end());
+//        for (int i = 0; i < path.size() ; ++i) {
+//            if (i == path.size() - 1)
+//            {
+//                cout << "(" << path[i].first << " " << path[i].second << ")" << endl;
+//            }
+//            else
+//            {
+//                cout << "(" << path[i].first << " " << path[i].second << ")" << "->";
+//            }
+//        }
     }
 };
 
