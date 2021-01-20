@@ -166,7 +166,7 @@ public:
         }
 
         min_cost = *min_element(dlist.begin(), dlist.end());
-        min_idx = min_element(dlist.begin(), dlist.end()) - dlist.begin();
+        min_idx = near_idxes[(min_element(dlist.begin(), dlist.end()) - dlist.begin())];
 
         if (min_cost == float(INFINITY))
         {
