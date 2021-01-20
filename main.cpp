@@ -4,7 +4,7 @@ using namespace std;
 
 #define EXPAND_DISTANCE 0.5
 #define GOAL_SAMPLE_RATE 20
-#define MAX_INTER 5000
+#define MAX_ITER 5000
 #define MIN_RAND -2
 #define MAX_RAND 15
 
@@ -153,7 +153,7 @@ public:
         for (auto ni : near_idxes) {
             dx = new_node->x - node_list[ni]->x;
             dy = new_node->y - node_list[ni]->y;
-            d = sqrt(dx * dx - dy * dy);
+            d = sqrt(dx * dx + dy * dy);
             theta = atan2(dy, dx);
             if (check_collision_extend(node_list[ni], theta, d, obstacles))
             {
@@ -185,7 +185,7 @@ public:
         Node* near_node;
         float dx, dy, d, s_cost, theta;
 
-        int n_node = near_idxes.size();
+        int n_node = node_list.size();
 
         for (auto ni : near_idxes) {
             near_node = node_list[ni];
@@ -208,6 +208,57 @@ public:
         }
     }
 
+    float calc_dist_to_goal(float x, float y)
+    {
+        return sqrt((x - goal->x) * (x - goal->x) + (y - goal->y) * (y - goal->y));
+    }
+
+    int get_best_last_index(void)
+    {
+        vector<float> dist_goal_list, cost_list;
+        vector<int> goal_indexes;
+        float dist, min_cost;
+
+        for (int i = 0; i < node_list.size(); ++i) {
+            dist = calc_dist_to_goal(node_list[i]->x, node_list[i]->y);
+            dist_goal_list.push_back(dist);
+        }
+
+        for (int j = 0; j < dist_goal_list.size(); ++j) {
+            if (dist_goal_list[j] <= EXPAND_DISTANCE)
+            {
+                goal_indexes.push_back(j);
+            }
+        }
+
+        for (int k = 0; k < goal_indexes.size(); ++k) {
+            cost_list.push_back(node_list[k]->cost);
+        }
+
+        min_cost = *min_element(cost_list.begin(), cost_list.end());
+        for (int k = 0; k < goal_indexes.size(); ++k) {
+            if (node_list[k]->cost == min_cost) {return k;}
+        }
+
+        return -1;
+    }
+
+    void get_final_path(int goal_index)
+    {
+        Node* node;
+
+        path.push_back(make_pair(goal->x, goal->y));
+
+        while (node_list[goal_index]->parent != -1)
+        {
+            node = node_list[goal_index];
+            path.push_back(make_pair(node->x, node->y));
+            goal_index = node->parent;
+        }
+
+        path.push_back(make_pair(start->x, start->y));
+    }
+
     void planning(int obstacles[][3])
     {
         // add start node
@@ -221,20 +272,12 @@ public:
         // sampled node
         PosPair rnd;
 
-        // nearest node's data
-        int nrst_idx;
+        int nrst_idx, last_idx;
 
         // near node's index list
         vector<int> near_idxes;
 
-        // check goal
-        float dx, dy, d;
-        int last_idx;
-        Node* last_node;
-
-        while (true)
-        {
-            // random sampling
+        for (int i = 0; i < MAX_ITER; ++i) {
             if (dist_int(mt) > GOAL_SAMPLE_RATE)
             {
                 rnd = make_pair(dist_float(mt), dist_float(mt));
@@ -244,58 +287,23 @@ public:
                 rnd = make_pair(goal->x, goal->y);
             }
 
-            // find nearest node
             nrst_idx = nearest_node_list(node_list, rnd);
 
-            // steer
             Node* new_node = steer(rnd, nrst_idx);
 
-            if (!check_collision(new_node, obstacles)) {continue;}
+            if (check_collision(new_node, obstacles))
+            {
+                near_idxes = find_near_nodes(new_node->x, new_node->y);
 
-            // find near nodes
-            near_idxes = find_near_nodes(new_node->x, new_node->y);
+                new_node = choose_parent(new_node, near_idxes, obstacles);
+                node_list.push_back(new_node);
 
-            // choose parent
-            new_node = choose_parent(new_node, near_idxes, obstacles);
-            node_list.push_back(new_node);
-
-            // rewire
-            rewire(new_node, near_idxes, obstacles);
-
-            // check goal
-//            dx = new_node->x - goal->x;
-//            dy = new_node->y - goal->y;
-//            d = sqrt(dx * dx + dy * dy);
-//            if (d <= EXPAND_DISTANCE)
-//            {
-//                cout << "Goal!!" << endl;
-//                break;
-//            }
+                rewire(new_node, near_idxes, obstacles);
+            }
         }
 
-        // path
-//        path.push_back(make_pair(goal->x, goal->y));
-//        last_idx = node_list.size() - 1;
-//        while (node_list[last_idx]->parent != -1)
-//        {
-//            last_node = node_list[last_idx];
-//            path.push_back(make_pair(last_node->x, last_node->y));
-//            last_idx = last_node->parent;
-//        }
-//        path.push_back(make_pair(start->x, start->y));
-//
-//        // print
-//        reverse(path.begin(), path.end());
-//        for (int i = 0; i < path.size() ; ++i) {
-//            if (i == path.size() - 1)
-//            {
-//                cout << "(" << path[i].first << " " << path[i].second << ")" << endl;
-//            }
-//            else
-//            {
-//                cout << "(" << path[i].first << " " << path[i].second << ")" << "->";
-//            }
-//        }
+        last_idx = get_best_last_index();
+        get_final_path(last_idx);
     }
 };
 
